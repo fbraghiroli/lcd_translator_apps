@@ -1,0 +1,8 @@
+== lcd translator program
+
+=== Description
+This program can be used to translate messages from serial lcd client to a different serial lcd protocol.
+
+=== Supported protocols:
+
+It acts as a serial slave for a mtxorb client program from which receives data and it acts as a serial master for slcd nuttx lcd protocol.
