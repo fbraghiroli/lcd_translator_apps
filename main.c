@@ -24,8 +24,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
+#include <ctype.h>
+#include "proto.h"
+#include "circ_buf.h"
 
 #define error(args...) fprintf(stderr, ##args)
+#define info(args...) fprintf(stderr, ##args)
+#define BUF_SIZE (1 << 10) /* Must be power of 2 */
+
+struct cfg_params {
+	char *server_port;
+	char *client_port;
+};
 
 static int set_interface_attribs(int fd, int speed)
 {
@@ -59,38 +69,94 @@ static int set_interface_attribs(int fd, int speed)
         return 0;
 }
 
+static int init_ifaces(int *fd_server, int *fd_client, const struct cfg_params *cfg)
+{
+	*fd_server = open(cfg->server_port, O_RDWR | O_NOCTTY | O_SYNC);
+	if (*fd_server < 0) {
+		error("Failed to open server port: %s\n", cfg->server_port);
+		return -errno;
+	}
+	set_interface_attribs(*fd_server, B19200);
+
+	*fd_client = open(cfg->client_port, O_RDWR | O_NOCTTY | O_SYNC);
+	if (*fd_client < 0) {
+		error("Failed to open client port: %s\n", cfg->client_port);
+		return -errno;
+	}
+	set_interface_attribs(*fd_client, B19200);
+	return 0;
+}
+
 /*
 socat -d -d pty,rawer,echo=0 pty,rawer,echo=0
+socat -d -d pty,rawer,echo=0,link=/tmp/pts0 pty,rawer,echo=0,link=/tmp/pts1
 */
 
 int main(int argc, char *argv[])
 {
-	char *server_port = "/dev/ttyUSB0";
-	char *client_port = "/dev/ttyUSB1";
+	static struct cfg_params cfg;
+	cfg.server_port = "/dev/ttyUSB0";
+	cfg.client_port = "/dev/ttyUSB1";
 	int fd_server = -1, fd_client = -1;
+	struct mtxorb_hndl *mtxorb;
+	struct proto_cmd_ops mtxorb_ops;
 
 	/* TODO: use getopt */
 	/* <app> [server port] [client port] */
 	if (argv[1])
-		server_port = argv[1];
+		cfg.server_port = argv[1];
 	if (argv[2])
-		client_port = argv[2];
+		cfg.client_port = argv[2];
 
-	fd_server = open(server_port, O_RDWR | O_NOCTTY | O_SYNC);
-	if (fd_server < 0) {
-		error("Failed to open server port: %s\n", server_port);
-		goto exit_open;
+	if (init_ifaces(&fd_server, &fd_client, &cfg) < 0) {
+		goto exit_init;
 	}
-	set_interface_attribs(fd_server, B115200);
 
-	fd_client = open(client_port, O_RDWR | O_NOCTTY | O_SYNC);
-	if (fd_client < 0) {
-		error("Failed to open client port: %s\n", client_port);
-		goto exit_open;
-	}
-	set_interface_attribs(fd_client, B115200);
+	if (proto_mtxorb_init(&mtxorb, &mtxorb_ops) < 0)
+		goto exit_init;
 
-exit_open:
+	while (1) {
+		char c;
+		int rret;
+		struct proto_cmd_data cdata;
+		/* Assume to have a blocking read */
+		rret = read(fd_server, &c , 1);
+		if (rret < 0) {
+			if (errno == EINTR) {
+				break;
+			}
+			error("read error: %d\n", -errno);
+			usleep(200*1000);
+		}
+		if (!rret) {
+			info("eof\n");
+			break;
+		}
+
+		if (mtxorb_ops.parse_cmd(mtxorb, c, &cdata) == 1) {
+#if 1
+			if (cdata.cmd == PROTO_CMD_ASCII) {
+				if (isprint(cdata.data.ascii) || cdata.data.ascii == 0xa)
+					printf("%c", (unsigned char)cdata.data.ascii);
+				else
+					printf("\n0x%02x\n", (unsigned char)cdata.data.ascii);
+			} else
+				printf("\nCMD: %s\n", proto_cmds_str[cdata.cmd]);
+#endif
+		}
+
+#if 0
+		if (isprint(c) || c == 0xa)
+			printf("%c", (unsigned char)c);
+		else
+			printf("\n0x%02x\n", (unsigned char)c);
+#endif
+
+	};
+
+exit_init:
+	proto_mtxorb_deinit(mtxorb);
+
 	if (fd_server >= 0)
 		close(fd_server);
 	if (fd_client >= 0)

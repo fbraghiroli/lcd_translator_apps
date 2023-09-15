@@ -17,13 +17,21 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#ifndef PROTO_H
+#define PROTO_H
+
+#include <stdint.h>
 #include "circ_buf.h"
 
 enum proto_cmds {
 	PROTO_CMD_INVALID,
+	PROTO_CMD_ASCII,
 	/* This list have been created by referring to mtxorb datasheet,
 	 * however it should be generic.
 	 */
+	PROTO_CMD_GET_SN,
+	PROTO_CMD_GET_FW_VER,
+	PROTO_CMD_GET_DISPLAY_TYPE,
 	PROTO_CMD_AUTO_LINE_WRAP_ON,
 	PROTO_CMD_AUTO_LINE_WRAP_OFF,
 	PROTO_CMD_AUTO_SCROLL_ON,
@@ -37,33 +45,18 @@ enum proto_cmds {
 	PROTO_CMD_CURSOR_LEFT,
 	PROTO_CMD_CURSOR_RIGHT,
 	/* skip graphics / bars / etc... */
+	PROTO_CMD_ADD_CUSTOM_CHAR,
 	PROTO_CMD_CLR_DISPLAY,
-	/* skip contrast */
-	PROTO_CMD_BACKLIGHT_ON,
+	PROTO_CMD_SET_CONTRAST, /* data */
+	PROTO_CMD_BACKLIGHT_ON, /* data */
 	PROTO_CMD_BACKLIGHT_OFF,
+	PROTO_CMD_BACKLIGHT_LVL, /* data */
 	/* skip read module type */
 	PROTO_CMD_LAST,
 	PROTO_CMD_FIRST = PROTO_CMD_INVALID,
 };
 
-const char * proto_cmds_str[] = {
-	[PROTO_CMD_INVALID] = "invalid",
-	[PROTO_CMD_AUTO_LINE_WRAP_ON] = "auto_line_wrap_on",
-	[PROTO_CMD_AUTO_LINE_WRAP_OFF] = "auto_line_wrap_off",
-	[PROTO_CMD_AUTO_SCROLL_ON] = "auto_scroll_on",
-	[PROTO_CMD_AUTO_SCROLL_OFF] = "auto_scroll_off",
-	[PROTO_CMD_SET_CURSOR_POS] = "set_cursor_pos",
-	[PROTO_CMD_SEND_CURSOR_HOME] = "send_cursor_home",
-	[PROTO_CMD_UNDERLINE_CURSOR_ON] = "underline_cursor_on",
-	[PROTO_CMD_UNDERLINE_CURSOR_OFF] = "underline_cursor_off",
-	[PROTO_CMD_BLINK_CURSOR_ON] = "blink_cursor_on",
-	[PROTO_CMD_BLINK_CURSOR_OFF] = "blink_cursor_off",
-	[PROTO_CMD_CURSOR_LEFT] = "cursor_left",
-	[PROTO_CMD_CURSOR_RIGHT] = "cursor_right",
-	[PROTO_CMD_CLR_DISPLAY] = "clr_display",
-	[PROTO_CMD_BACKLIGHT_ON] = "backlight_on",
-	[PROTO_CMD_BACKLIGHT_OFF] = "backlight_off",
-};
+extern const char *proto_cmds_str[];
 
 struct proto_pos {
 	uint8_t col;
@@ -74,6 +67,8 @@ struct proto_cmd_data {
 	enum proto_cmds cmd;
 	union cmd_data {
 		struct proto_pos pos;
+		uint8_t contrast;
+		uint8_t ascii;
 	} data;
 };
 
@@ -87,5 +82,12 @@ struct proto_cmd_ops {
 	 *  0: partial / incomplete command
 	 *  1: valid command parsed
 	 */
-	int (*parse_cmd)(void *hndl, struct circ_buf *buf, int buf_size, struct proto_cmd_data *d);
+	int (*parse_cmd_buffered)(void *hndl, struct circ_buf *buf, int buf_size, struct proto_cmd_data *d);
+	int (*parse_cmd)(void *hndl, uint8_t c, struct proto_cmd_data *d);
 };
+
+struct mtxorb_hndl;
+int proto_mtxorb_init(struct mtxorb_hndl **hndl, struct proto_cmd_ops *ops);
+int proto_mtxorb_deinit(struct mtxorb_hndl *hndl);
+
+#endif //PROTO_H

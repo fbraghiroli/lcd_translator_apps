@@ -38,9 +38,13 @@ struct mtxorb_hndl {
 	uint8_t msg_data_left;
 };
 
+/* Some commands codes have been taken from lcdproc MtxOrb.c source */
 static const uint8_t mtxorb_cmds[PROTO_CMD_LAST] = {
 	/* CMD_INVALID catch 0x0 (an thus undefined commands of this list) */
 	[PROTO_CMD_INVALID] = 0x0,
+	[PROTO_CMD_GET_SN] = 0x35,
+	[PROTO_CMD_GET_FW_VER] = 0x36,
+	[PROTO_CMD_GET_DISPLAY_TYPE] = 0x37,
 	[PROTO_CMD_AUTO_LINE_WRAP_ON] = 0x43,
 	[PROTO_CMD_AUTO_LINE_WRAP_OFF] = 0x44,
 	[PROTO_CMD_AUTO_SCROLL_ON] = 0x51,
@@ -53,9 +57,12 @@ static const uint8_t mtxorb_cmds[PROTO_CMD_LAST] = {
 	[PROTO_CMD_BLINK_CURSOR_OFF] = 0x54,
 	[PROTO_CMD_CURSOR_LEFT] = 0x4c,
 	[PROTO_CMD_CURSOR_RIGHT] = 0x4d,
+	[PROTO_CMD_ADD_CUSTOM_CHAR] = 0x4e,
 	[PROTO_CMD_CLR_DISPLAY] = 0x58,
-	[PROTO_CMD_BLINK_CURSOR_ON] = 0x42,
-	[PROTO_CMD_BLINK_CURSOR_OFF] = 0x46,
+	[PROTO_CMD_SET_CONTRAST] = 0x50,
+	[PROTO_CMD_BACKLIGHT_ON] = 0x42,
+	[PROTO_CMD_BACKLIGHT_OFF] = 0x46,
+	[PROTO_CMD_BACKLIGHT_LVL] = 0x99,
 };
 
 static int msg_fsm_run(struct mtxorb_hndl *h, uint8_t c)
@@ -68,6 +75,15 @@ static int msg_fsm_run(struct mtxorb_hndl *h, uint8_t c)
 		if (c == MTXORB_HEADER) {
 			memset(&h->msg, 0, sizeof(h->msg));
 			h->msg_fsm = MSG_FSM_HEADER;
+		} else {
+			/* everything else can be considered ascii text (??) */
+			h->msg.cmd = PROTO_CMD_ASCII;
+			/* convert some chars... */
+			if (c == 0xff)
+				c = '#';
+			if (c >= 0x0 && c <= 0x7) /* custom char, for now replaced */
+				c = '#';
+			h->msg.data.ascii = c;
 		}
 		break;
 	case MSG_FSM_HEADER:
@@ -83,6 +99,27 @@ static int msg_fsm_run(struct mtxorb_hndl *h, uint8_t c)
 			h->msg_data_left = 2;
 			break;
 		}
+		if (h->msg.cmd == PROTO_CMD_SET_CONTRAST) {
+			h->msg_fsm = MSG_FSM_CMD;
+			h->msg_data_left = 1;
+			break;
+		}
+		if (h->msg.cmd == PROTO_CMD_BACKLIGHT_ON) {
+			h->msg_fsm = MSG_FSM_CMD;
+			h->msg_data_left = 1;
+			break;
+		}
+		if (h->msg.cmd == PROTO_CMD_BACKLIGHT_LVL) {
+			h->msg_fsm = MSG_FSM_CMD;
+			h->msg_data_left = 1;
+			break;
+		}
+		if (h->msg.cmd == PROTO_CMD_ADD_CUSTOM_CHAR) {
+			h->msg_fsm = MSG_FSM_CMD;
+			h->msg_data_left = 8;
+			break;
+		}
+
 		/* Reset the fsm in case the command is invalid or no more bytes
 		 * are expected (message completed).
 		 */
@@ -96,16 +133,23 @@ static int msg_fsm_run(struct mtxorb_hndl *h, uint8_t c)
 				h->msg.data.pos.col = c;
 			else
 				h->msg.data.pos.row = c;
-			h->msg_data_left--;
-			if (!h->msg_data_left)
-				h->msg_fsm = MSG_FSM_NONE;
 		}
+		if (h->msg.cmd == PROTO_CMD_SET_CONTRAST) {
+			h->msg.data.contrast = c;
+		}
+		/* Ignore backlight on data (minutes) */
+		/* Ignore custom char data */
+		/* Ignore backlight lvl data */
+		h->msg_data_left--;
+		if (!h->msg_data_left)
+			h->msg_fsm = MSG_FSM_NONE;
+
 		break;
 	}
 	return ret;
 }
 
-static int mtxorb_parse_cmd(void *hndl, struct circ_buf *b, int b_size, struct proto_cmd_data *d)
+static int mtxorb_parse_cmd_buffered(void *hndl, struct circ_buf *b, int b_size, struct proto_cmd_data *d)
 {
 	struct mtxorb_hndl *h = hndl;
 	while (CIRC_CNT(b->head, b->tail, b_size) >= 1) {
@@ -129,7 +173,26 @@ static int mtxorb_parse_cmd(void *hndl, struct circ_buf *b, int b_size, struct p
 
 }
 
-int mtxorb_init(struct mtxorb_hndl **hndl, struct proto_cmd_ops *ops)
+static int mtxorb_parse_cmd(void *hndl, uint8_t c, struct proto_cmd_data *d)
+{
+	struct mtxorb_hndl *h = hndl;
+
+	uint8_t cmd = PROTO_CMD_FIRST;
+	msg_fsm_run(h, c);
+	if (h->msg_fsm == MSG_FSM_NONE && h->msg.cmd != PROTO_CMD_INVALID) {
+		*d = h->msg;
+		return 1;
+	}
+
+	if (h->msg_fsm != MSG_FSM_NONE) {
+		if (h->msg.cmd == PROTO_CMD_INVALID)
+			return -1;
+	}
+	return 0;
+
+}
+
+int proto_mtxorb_init(struct mtxorb_hndl **hndl, struct proto_cmd_ops *ops)
 {
 	struct mtxorb_hndl *p;
 	/* malloc etc.. */
@@ -144,7 +207,7 @@ int mtxorb_init(struct mtxorb_hndl **hndl, struct proto_cmd_ops *ops)
 	return 0;
 }
 
-int mtxorb_deinit(struct mtxorb_hndl *hndl)
+int proto_mtxorb_deinit(struct mtxorb_hndl *hndl)
 {
 	if (hndl)
 		free(hndl);

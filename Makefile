@@ -2,7 +2,7 @@
 CC=gcc
 CFLAGS=-I.
 DEPS = 
-OBJ = main.o proto_mtxorb.o
+OBJ = main.o proto_mtxorb.o proto.o
 
 %.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
