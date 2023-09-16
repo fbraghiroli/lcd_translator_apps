@@ -45,7 +45,9 @@ static int set_interface_attribs(int fd, int speed)
 
         cfsetospeed (&tty, speed);
         cfsetispeed (&tty, speed);
-
+	/* Reminder for serial flags:
+	 * https://blog.mbedded.ninja/programming/operating-systems/linux/linux-serial-ports-using-c-cpp/
+	 */
 	tty.c_cflag |= CLOCAL | CREAD;
 	tty.c_cflag &= ~CSIZE;
 	tty.c_cflag |= CS8;         /* 8-bit characters */
@@ -53,15 +55,19 @@ static int set_interface_attribs(int fd, int speed)
 	tty.c_cflag &= ~CSTOPB;     /* only need 1 stop bit */
 	tty.c_cflag &= ~CRTSCTS;    /* no hardware flowcontrol */
 
-	tty.c_lflag |= ICANON | ISIG;  /* canonical input */
-	tty.c_lflag &= ~(ECHO | ECHOE | ECHONL | IEXTEN);
+	tty.c_lflag &= ~ICANON; /* No canonical input (no need to wait \n) */
+	tty.c_lflag &= ~ISIG;  /* Disable interpretation of INTR, QUIT and SUSP */
+	tty.c_lflag &= ~(ECHO | ECHOE | ECHONL);
 
-	tty.c_iflag &= ~IGNCR;  /* preserve carriage return */
-	tty.c_iflag &= ~INPCK;
-	tty.c_iflag &= ~(INLCR | ICRNL | IUCLC | IMAXBEL);
+	/* Disable any special handling of received bytes */
+	tty.c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR|ICRNL);
 	tty.c_iflag &= ~(IXON | IXOFF | IXANY);   /* no SW flowcontrol */
 
 	tty.c_oflag &= ~OPOST;
+	tty.c_oflag &= ~ONLCR;
+
+	tty.c_cc[VTIME] = 0; /* 0 -> blocking read */
+	tty.c_cc[VMIN] = 1; /* 1 -> at least 1 byte per read */
 
         if (tcsetattr (fd, TCSANOW, &tty) != 0)
 		return -errno;
@@ -71,14 +77,14 @@ static int set_interface_attribs(int fd, int speed)
 
 static int init_ifaces(int *fd_server, int *fd_client, const struct cfg_params *cfg)
 {
-	*fd_server = open(cfg->server_port, O_RDWR | O_NOCTTY | O_SYNC);
+	*fd_server = open(cfg->server_port, O_RDWR /*| O_NOCTTY | O_SYNC*/);
 	if (*fd_server < 0) {
 		error("Failed to open server port: %s\n", cfg->server_port);
 		return -errno;
 	}
 	set_interface_attribs(*fd_server, B19200);
 
-	*fd_client = open(cfg->client_port, O_RDWR | O_NOCTTY | O_SYNC);
+	*fd_client = open(cfg->client_port, O_RDWR /*| O_NOCTTY | O_SYNC*/);
 	if (*fd_client < 0) {
 		error("Failed to open client port: %s\n", cfg->client_port);
 		return -errno;
