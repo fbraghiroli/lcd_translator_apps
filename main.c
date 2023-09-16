@@ -146,8 +146,12 @@ int main(int argc, char *argv[])
 					printf("%c", (unsigned char)cdata.data.ascii);
 				else
 					printf("\n0x%02x\n", (unsigned char)cdata.data.ascii);
-			} else
-				printf("\nCMD: %s\n", proto_cmds_str[cdata.cmd]);
+			} else {
+				printf("\nCMD: %s", proto_cmds_str[cdata.cmd]);
+				if (cdata.cmd == PROTO_CMD_SET_CURSOR_POS)
+					printf("[r: %02d c: %02d]", cdata.data.pos.row, cdata.data.pos.col);
+				printf("\n");
+			}
 #endif
 		}
 
