@@ -25,11 +25,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <termios.h>
 #include <unistd.h>
 #include <ctype.h>
+#include "utils.h"
 #include "proto.h"
 #include "circ_buf.h"
 
-#define error(args...) fprintf(stderr, ##args)
-#define info(args...) fprintf(stderr, ##args)
 #define BUF_SIZE (1 << 10) /* Must be power of 2 */
 
 struct cfg_params {
@@ -37,43 +36,6 @@ struct cfg_params {
 	char *client_port;
 };
 
-static int set_interface_attribs(int fd, int speed)
-{
-        struct termios tty;
-        if (tcgetattr (fd, &tty) != 0)
-		return -errno;
-
-        cfsetospeed (&tty, speed);
-        cfsetispeed (&tty, speed);
-	/* Reminder for serial flags:
-	 * https://blog.mbedded.ninja/programming/operating-systems/linux/linux-serial-ports-using-c-cpp/
-	 */
-	tty.c_cflag |= CLOCAL | CREAD;
-	tty.c_cflag &= ~CSIZE;
-	tty.c_cflag |= CS8;         /* 8-bit characters */
-	tty.c_cflag &= ~PARENB;     /* no parity bit */
-	tty.c_cflag &= ~CSTOPB;     /* only need 1 stop bit */
-	tty.c_cflag &= ~CRTSCTS;    /* no hardware flowcontrol */
-
-	tty.c_lflag &= ~ICANON; /* No canonical input (no need to wait \n) */
-	tty.c_lflag &= ~ISIG;  /* Disable interpretation of INTR, QUIT and SUSP */
-	tty.c_lflag &= ~(ECHO | ECHOE | ECHONL);
-
-	/* Disable any special handling of received bytes */
-	tty.c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR|ICRNL);
-	tty.c_iflag &= ~(IXON | IXOFF | IXANY);   /* no SW flowcontrol */
-
-	tty.c_oflag &= ~OPOST;
-	tty.c_oflag &= ~ONLCR;
-
-	tty.c_cc[VTIME] = 0; /* 0 -> blocking read */
-	tty.c_cc[VMIN] = 1; /* 1 -> at least 1 byte per read */
-
-        if (tcsetattr (fd, TCSANOW, &tty) != 0)
-		return -errno;
-
-        return 0;
-}
 
 static int init_ifaces(int *fd_server, int *fd_client, const struct cfg_params *cfg)
 {
@@ -82,14 +44,14 @@ static int init_ifaces(int *fd_server, int *fd_client, const struct cfg_params *
 		error("Failed to open server port: %s\n", cfg->server_port);
 		return -errno;
 	}
-	set_interface_attribs(*fd_server, B19200);
+	tty_set_attribs(*fd_server, B19200);
 
 	*fd_client = open(cfg->client_port, O_RDWR /*| O_NOCTTY | O_SYNC*/);
 	if (*fd_client < 0) {
 		error("Failed to open client port: %s\n", cfg->client_port);
 		return -errno;
 	}
-	set_interface_attribs(*fd_client, B19200);
+	tty_set_attribs(*fd_client, B19200);
 	return 0;
 }
 
