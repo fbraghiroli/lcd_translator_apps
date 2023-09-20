@@ -39,7 +39,15 @@ struct cfg_params {
 
 static int init_ifaces(int *fd_server, int *fd_client, const struct cfg_params *cfg)
 {
-	*fd_server = open(cfg->server_port, O_RDWR /*| O_NOCTTY | O_SYNC*/);
+	/* On NuttX, server tty might be available after this program tries to open
+	 * the device (usb enumeration).
+	 * Just busy waiting for the device.
+	 */
+	int open_retry = 10;
+	do {
+		*fd_server = open(cfg->server_port, O_RDWR /*| O_NOCTTY | O_SYNC*/);
+		sleep(1);
+	} while(open_retry-- && *fd_server < 0);
 	if (*fd_server < 0) {
 		error("Failed to open server port: %s\n", cfg->server_port);
 		return -errno;
@@ -63,8 +71,8 @@ socat -d -d pty,rawer,echo=0,link=/tmp/pts0 pty,rawer,echo=0,link=/tmp/pts1
 int main(int argc, char *argv[])
 {
 	static struct cfg_params cfg;
-	cfg.server_port = "/dev/ttyUSB0";
-	cfg.client_port = "/dev/ttyUSB1";
+	cfg.server_port = "/dev/ttyACM0";
+	cfg.client_port = "/dev/null";
 	int fd_server = -1, fd_client = -1;
 	struct mtxorb_hndl *mtxorb;
 	struct proto_cmd_ops mtxorb_ops;
@@ -135,4 +143,10 @@ exit_init:
 		close(fd_client);
 
 	return 0;
+}
+
+/* NuttX entry point */
+int lcd_translator_main(int argc, char *argv[])
+{
+	return main(argc, argv);
 }
