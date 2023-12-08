@@ -36,8 +36,7 @@ struct cfg_params {
 	char *client_port;
 };
 
-
-static int init_ifaces(int *fd_server, int *fd_client, const struct cfg_params *cfg)
+static int init_server(int *fd_server, const struct cfg_params *cfg)
 {
 	/* On NuttX, server tty might be available after this program tries to open
 	 * the device (usb enumeration).
@@ -53,7 +52,12 @@ static int init_ifaces(int *fd_server, int *fd_client, const struct cfg_params *
 		return -errno;
 	}
 	tty_set_attribs(*fd_server, B19200);
+	return 0;
+}
 
+static int init_client(int *fd_client, const struct cfg_params *cfg)
+{
+/* NuttX hardfault if it is not a tty! */
 	*fd_client = open(cfg->client_port, O_RDWR /*| O_NOCTTY | O_SYNC*/);
 	if (*fd_client < 0) {
 		error("Failed to open client port: %s\n", cfg->client_port);
@@ -68,6 +72,7 @@ socat -d -d pty,rawer,echo=0 pty,rawer,echo=0
 socat -d -d pty,rawer,echo=0,link=/tmp/pts0 pty,rawer,echo=0,link=/tmp/pts1
 */
 
+/* Linux only */
 int main(int argc, char *argv[])
 {
 	static struct cfg_params cfg;
@@ -84,9 +89,11 @@ int main(int argc, char *argv[])
 	if (argv[2])
 		cfg.client_port = argv[2];
 
-	if (init_ifaces(&fd_server, &fd_client, &cfg) < 0) {
+	if (init_server(&fd_server, &cfg) < 0)
 		goto exit_init;
-	}
+
+	if (init_client(&fd_client, &cfg) < 0)
+		goto exit_init;
 
 	if (proto_mtxorb_init(&mtxorb, &mtxorb_ops) < 0)
 		goto exit_init;
@@ -108,9 +115,8 @@ int main(int argc, char *argv[])
 			info("eof\n");
 			break;
 		}
-
-		if (mtxorb_ops.parse_cmd(mtxorb, c, &cdata) == 1) {
 #if 1
+		if (mtxorb_ops.parse_cmd(mtxorb, c, &cdata) == 1) {
 			if (cdata.cmd == PROTO_CMD_ASCII) {
 				if (isprint(cdata.data.ascii) || cdata.data.ascii == 0xa)
 					printf("%c", (unsigned char)cdata.data.ascii);
@@ -122,8 +128,8 @@ int main(int argc, char *argv[])
 					printf("[r: %02d c: %02d]", cdata.data.pos.row, cdata.data.pos.col);
 				printf("\n");
 			}
-#endif
 		}
+#endif
 
 #if 0
 		if (isprint(c) || c == 0xa)
