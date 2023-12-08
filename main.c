@@ -28,6 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "utils.h"
 #include "proto.h"
 #include "circ_buf.h"
+#include "ctrl_slcd.h"
 
 #define BUF_SIZE (1 << 10) /* Must be power of 2 */
 
@@ -154,5 +155,83 @@ exit_init:
 /* NuttX entry point */
 int lcd_translator_main(int argc, char *argv[])
 {
-	return main(argc, argv);
+	//while (1) {
+	//	printf("ciao\n");
+	//	sleep(1);
+	//};
+	//sleep(5);
+
+	static struct cfg_params cfg;
+	cfg.server_port = "/dev/ttyACM0";
+	cfg.client_port = "/dev/slcd0";
+	int fd_server = -1;
+	struct mtxorb_hndl *mtxorb;
+	struct proto_cmd_ops mtxorb_ops;
+	struct ctrl_slcd *slcd = NULL;
+
+	if (argc > 1)
+		cfg.server_port = argv[1];
+	if (argc > 2)
+		cfg.client_port = argv[2];
+
+	//printf("Hello\n");
+	sleep(1);
+	if (init_server(&fd_server, &cfg) < 0) {
+		error("init_server fail\n");
+		goto exit_init;
+	}
+	printf("init_server ok\n");
+	sleep(1);
+	if (!(slcd = ctrl_slcd_init(cfg.client_port))) {
+		error("ctrl_slcd_init fail\n");
+		goto exit_init;
+	}
+	printf("ctrl_slcd_init ok\n");
+	sleep(1);
+	if (proto_mtxorb_init(&mtxorb, &mtxorb_ops) < 0) {
+		error("proto_mtxorb_init fail\n");
+		goto exit_init;
+	}
+	printf("proto_mtxorb_init ok\n");
+	sleep(1);
+	while (1) {
+		char c;
+		int rret;
+		struct proto_cmd_data cdata;
+		/* Assume to have a blocking read */
+		rret = read(fd_server, &c , 1);
+		if (rret < 0) {
+			if (errno == EINTR) {
+				break;
+			}
+			error("read error: %d\n", -errno);
+			usleep(200*1000);
+			continue;
+		}
+		if (!rret) {
+			info("eof\n");
+			break;
+		}
+
+		if (mtxorb_ops.parse_cmd(mtxorb, c, &cdata) == 1) {
+			ctrl_slcd_cmd(slcd, &cdata);
+		}
+
+#if 0
+		if (isprint(c) || c == 0xa)
+			printf("%c", (unsigned char)c);
+		else
+			printf("\n0x%02x\n", (unsigned char)c);
+#endif
+
+	};
+
+exit_init:
+	proto_mtxorb_deinit(mtxorb);
+	ctrl_slcd_deinit(slcd);
+	if (fd_server >= 0)
+		close(fd_server);
+
+	return 0;
+
 }
