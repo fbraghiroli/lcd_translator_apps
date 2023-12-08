@@ -39,7 +39,7 @@ struct mtxorb_hndl {
 };
 
 /* Some commands codes have been taken from lcdproc MtxOrb.c source */
-static const uint8_t mtxorb_cmds[PROTO_CMD_LAST] = {
+static const uint8_t mtxorb_cmds[PROTO_CMD_LAST+1] = {
 	/* CMD_INVALID catch 0x0 (an thus undefined commands of this list) */
 	[PROTO_CMD_INVALID] = 0x0,
 	[PROTO_CMD_GET_SN] = 0x35,
@@ -116,7 +116,7 @@ static int msg_fsm_run(struct mtxorb_hndl *h, uint8_t c)
 		}
 		if (h->msg.cmd == PROTO_CMD_ADD_CUSTOM_CHAR) {
 			h->msg_fsm = MSG_FSM_CMD;
-			h->msg_data_left = 8;
+			h->msg_data_left = 9;
 			break;
 		}
 
@@ -153,7 +153,6 @@ static int mtxorb_parse_cmd_buffered(void *hndl, struct circ_buf *b, int b_size,
 {
 	struct mtxorb_hndl *h = hndl;
 	while (CIRC_CNT(b->head, b->tail, b_size) >= 1) {
-		uint8_t cmd = PROTO_CMD_FIRST;
 		uint8_t c = b->buf[b->tail];
 		b->tail = ((b->tail + 1) & (b_size - 1));
 		msg_fsm_run(h, c);
@@ -177,7 +176,6 @@ static int mtxorb_parse_cmd(void *hndl, uint8_t c, struct proto_cmd_data *d)
 {
 	struct mtxorb_hndl *h = hndl;
 
-	uint8_t cmd = PROTO_CMD_FIRST;
 	msg_fsm_run(h, c);
 	if (h->msg_fsm == MSG_FSM_NONE && h->msg.cmd != PROTO_CMD_INVALID) {
 		*d = h->msg;
