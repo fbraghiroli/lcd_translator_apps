@@ -4,8 +4,8 @@ APPDIR = ${shell pwd}
 
 # files
 
-CSRCS = main.c proto_mtxorb.c proto.c utils.c
-COBJS = main.o proto_mtxorb.o proto.o utils.o
+CSRCS = main.c proto_mtxorb.c proto.c utils.c ctrl_slcd.c
+COBJS = main.o proto_mtxorb.o proto.o utils.o ctrl_slcd.o
 
 ROOTDEPPATH = --dep-path .
 
