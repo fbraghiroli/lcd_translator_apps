@@ -22,6 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #define error(args...) fprintf(stderr, ##args)
 #define info(args...) fprintf(stderr, ##args)
+#define dbg(args...) fprintf(stderr, ##args)
 
 int tty_set_attribs(int fd, int speed);
 
