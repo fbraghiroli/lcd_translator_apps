@@ -243,15 +243,15 @@ int ctrl_slcd_cmd(struct ctrl_slcd *hndl, const struct proto_cmd_data *cmd)
 		break;
 	case PROTO_CMD_AUTO_LINE_WRAP_ON:
 		/* software implementation */
-		info("TODO: auto line wrap on\n");
+		dbg("TODO: auto line wrap on\n");
 		break;
 	case PROTO_CMD_AUTO_LINE_WRAP_OFF:
 		/* software implementation */
-		info("TODO: auto line wrap off\n");
+		dbg("TODO: auto line wrap off\n");
 		break;
 	case PROTO_CMD_AUTO_SCROLL_ON:
 		/* software implementation */
-		info("TODO: auto scroll on\n");
+		dbg("TODO: auto scroll on\n");
 		break;
 	case PROTO_CMD_AUTO_SCROLL_OFF:
 		/* software implementation */
@@ -262,7 +262,7 @@ int ctrl_slcd_cmd(struct ctrl_slcd *hndl, const struct proto_cmd_data *cmd)
 		slcd_set_curpos(priv, cmd->data.pos.row-1, cmd->data.pos.col-1);
 		break;
 	case PROTO_CMD_SEND_CURSOR_HOME:
-		info("Cursor home\n");
+		dbg("Cursor home\n");
 		/* Go to the top left */
 		/* SLCDCODE_HOME only moves the cursor at home for the current row */
 		slcd_encode(SLCDCODE_HOME, 0, &priv->stream);
@@ -286,7 +286,7 @@ int ctrl_slcd_cmd(struct ctrl_slcd *hndl, const struct proto_cmd_data *cmd)
 		slcd_encode(SLCDCODE_RIGHT, 1, &priv->stream);
 		break;
 	case PROTO_CMD_ADD_CUSTOM_CHAR:
-		info("TODO: add custom char\n");
+		dbg("TODO: add custom char\n");
 		/* TODO */
 		break;
 	case PROTO_CMD_CLR_DISPLAY:
