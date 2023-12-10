@@ -213,8 +213,11 @@ int lcd_translator_main(int argc, char *argv[])
 			break;
 		}
 
-		if (mtxorb_ops.parse_cmd(mtxorb, c, &cdata) == 1) {
+		rret = mtxorb_ops.parse_cmd(mtxorb, c, &cdata);
+		if (rret == 1) {
 			ctrl_slcd_cmd(slcd, &cdata);
+		} else if (rret < 0) {
+			error("parse_fail, byte: 0x%02x\n", c);
 		}
 
 #if 0
