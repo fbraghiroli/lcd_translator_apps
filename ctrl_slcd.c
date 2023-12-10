@@ -142,6 +142,20 @@ static void cbk_slcd_puts(struct lib_outstream_s *outstream, const char *str)
 		slcd_put((int)*str, outstream);
 }
 
+/* rows and cols are zero based */
+static void slcd_set_curpos(struct ctrl_slcd *hndl, uint8_t r, uint8_t c)
+{
+	struct ctrl_slcd *priv = hndl;
+	slcd_encode(SLCDCODE_HOME, 0, &priv->stream);
+	/* HACK:
+	 * Hardware cursor seems to jump by one line on 20x2 display controllers,
+	 * so to be sure to go up to the first row, just double the jump */
+	slcd_encode(SLCDCODE_UP, priv->attr.nrows*2, &priv->stream);
+	cbk_slcd_flush(&priv->stream);
+	slcd_encode(SLCDCODE_RIGHT, c, &priv->stream);
+	slcd_encode(SLCDCODE_DOWN, r, &priv->stream);
+}
+
 struct ctrl_slcd* ctrl_slcd_init(const char *dev)
 {
 	int ret = 0;
@@ -200,14 +214,27 @@ int ctrl_slcd_cmd(struct ctrl_slcd *hndl, const struct proto_cmd_data *cmd)
 
 	switch(cmd->cmd) {
 	case PROTO_CMD_ASCII:
+		/* We need to save the position *before* writing because on 20x4
+		 * display, after writing to the last column the row value returned
+		 * by the controller is not the next line but the is the current +2.
+		 * To simplify the line wrap handling with different displays and
+		 * controllers we manually implement line wrap. */
 		ioctl(hndl->fd, SLCDIOC_CURPOS, (unsigned long)&attr_pos);
-		if (attr_pos.column == 19 && attr_pos.row == 1) {
-			info("Force line wrap\n");
-			slcd_encode(SLCDCODE_HOME, 0, &priv->stream);
-			//slcd_encode(SLCDCODE_UP, priv->attr.nrows, &priv->stream);
-		}
+
 		info("ascii: 0x%02x %c\n", cmd->data.ascii, cmd->data.ascii);
 		slcd_put(cmd->data.ascii, &priv->stream);
+		cbk_slcd_flush(&priv->stream);
+
+		/* Check if we wrote on the last column */
+		if (attr_pos.column == hndl->attr.ncolumns-1) {
+			if (attr_pos.row < hndl->attr.nrows-1)
+				attr_pos.row++;
+			else
+				attr_pos.row = 0;
+			/* This might be slow, evaluate to use SLCDCODE_DOWN when not
+			 * wrapping on the last line. */
+			slcd_set_curpos(priv, attr_pos.row, 0);
+		}
 		break;
 	case PROTO_CMD_GET_SN:
 	case PROTO_CMD_GET_FW_VER:
@@ -231,13 +258,8 @@ int ctrl_slcd_cmd(struct ctrl_slcd *hndl, const struct proto_cmd_data *cmd)
 		info("TODO: auto scroll off\n");
 		break;
 	case PROTO_CMD_SET_CURSOR_POS:
-		/* Perche' sul thanks for using non vedo la seconda riga??? */
-		info("Cursor: %d %d\n", cmd->data.pos.row-1, cmd->data.pos.col-1);
-		slcd_encode(SLCDCODE_HOME, 0, &priv->stream);
-		slcd_encode(SLCDCODE_UP, priv->attr.nrows, &priv->stream);
-		cbk_slcd_flush(&priv->stream);
-		slcd_encode(SLCDCODE_RIGHT, cmd->data.pos.col-1, &priv->stream);
-		slcd_encode(SLCDCODE_DOWN, cmd->data.pos.row-1, &priv->stream);
+		dbg("Cursor: %d %d\n", cmd->data.pos.row-1, cmd->data.pos.col-1);
+		slcd_set_curpos(priv, cmd->data.pos.row-1, cmd->data.pos.col-1);
 		break;
 	case PROTO_CMD_SEND_CURSOR_HOME:
 		info("Cursor home\n");
