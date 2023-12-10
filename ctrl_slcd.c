@@ -306,6 +306,9 @@ int ctrl_slcd_cmd(struct ctrl_slcd *hndl, const struct proto_cmd_data *cmd)
 		/* Not supported by the hardware */
 		//ioctl(priv->fd, SLCDIOC_SETBRIGHTNESS, priv->attr.maxbrightness);
 		break;
+	case PROTO_CMD_GPO_OFF:
+	case PROTO_CMD_GPO_ON:
+		break;
 	default:
 		info("cmd %d not implemented\n", cmd->cmd);
 		break;

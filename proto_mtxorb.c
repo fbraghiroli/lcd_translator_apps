@@ -63,6 +63,8 @@ static const uint8_t mtxorb_cmds[PROTO_CMD_LAST+1] = {
 	[PROTO_CMD_BACKLIGHT_ON] = 0x42,
 	[PROTO_CMD_BACKLIGHT_OFF] = 0x46,
 	[PROTO_CMD_BACKLIGHT_LVL] = 0x99,
+	[PROTO_CMD_GPO_OFF] = 0x56,
+	[PROTO_CMD_GPO_ON] = 0x57,
 };
 
 static int msg_fsm_run(struct mtxorb_hndl *h, uint8_t c)

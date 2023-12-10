@@ -51,6 +51,8 @@ enum proto_cmds {
 	PROTO_CMD_BACKLIGHT_ON, /* data */
 	PROTO_CMD_BACKLIGHT_OFF,
 	PROTO_CMD_BACKLIGHT_LVL, /* data */
+	PROTO_CMD_GPO_OFF,
+	PROTO_CMD_GPO_ON,
 	/* skip read module type */
 	PROTO_CMD_LAST,
 	PROTO_CMD_FIRST = PROTO_CMD_INVALID,
