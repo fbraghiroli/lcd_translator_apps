@@ -184,7 +184,7 @@ static int mtxorb_parse_cmd(void *hndl, uint8_t c, struct proto_cmd_data *d)
 		return 1;
 	}
 
-	if (h->msg_fsm != MSG_FSM_NONE) {
+	if (h->msg_fsm == MSG_FSM_NONE) {
 		if (h->msg.cmd == PROTO_CMD_INVALID)
 			return -1;
 	}
