@@ -263,11 +263,7 @@ int ctrl_slcd_cmd(struct ctrl_slcd *hndl, const struct proto_cmd_data *cmd)
 		break;
 	case PROTO_CMD_SEND_CURSOR_HOME:
 		dbg("Cursor home\n");
-		/* Go to the top left */
-		/* SLCDCODE_HOME only moves the cursor at home for the current row */
-		slcd_encode(SLCDCODE_HOME, 0, &priv->stream);
-		/* so, we need also to go up */
-		slcd_encode(SLCDCODE_UP, priv->attr.nrows, &priv->stream);
+		slcd_set_curpos(priv, 0, 0);
 		break;
 	case PROTO_CMD_UNDERLINE_CURSOR_ON:
 	case PROTO_CMD_UNDERLINE_CURSOR_OFF:
