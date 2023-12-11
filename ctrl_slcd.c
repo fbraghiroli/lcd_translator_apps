@@ -222,8 +222,10 @@ int ctrl_slcd_cmd(struct ctrl_slcd *hndl, const struct proto_cmd_data *cmd)
 		 * To simplify the line wrap handling with different displays and
 		 * controllers we manually implement line wrap. */
 		ioctl(hndl->fd, SLCDIOC_CURPOS, (unsigned long)&attr_pos);
-
-		info("ascii: 0x%02x %c\n", cmd->data.ascii, cmd->data.ascii);
+#if 0
+		dbg("ascii: 0x%02x %c\n", cmd->data.ascii,
+				isprint(cmd->data.ascii) ? cmd->data.ascii : ' ');
+#endif
 		slcd_put(cmd->data.ascii, &priv->stream);
 		cbk_slcd_flush(&priv->stream);
 
@@ -257,24 +259,28 @@ int ctrl_slcd_cmd(struct ctrl_slcd *hndl, const struct proto_cmd_data *cmd)
 		break;
 	case PROTO_CMD_AUTO_SCROLL_OFF:
 		/* software implementation */
-		info("TODO: auto scroll off\n");
+		dbg("TODO: auto scroll off\n");
 		break;
 	case PROTO_CMD_SET_CURSOR_POS:
-		dbg("Cursor: %d %d\n", cmd->data.pos.row-1, cmd->data.pos.col-1);
 		slcd_set_curpos(priv, cmd->data.pos.row-1, cmd->data.pos.col-1);
 		break;
 	case PROTO_CMD_SEND_CURSOR_HOME:
-		dbg("Cursor home\n");
 		slcd_set_curpos(priv, 0, 0);
 		break;
 	case PROTO_CMD_UNDERLINE_CURSOR_ON:
+		dbg("TODO: underline cursor on\n");
+		/* TODO: check if supported by the display */
+		break;
 	case PROTO_CMD_UNDERLINE_CURSOR_OFF:
+		dbg("TODO: underline cursor off\n");
 		/* TODO: check if supported by the display */
 		break;
 	case PROTO_CMD_BLINK_CURSOR_ON:
+		dbg("TODO: blink cursor on\n");
 		//slcd_encode(SLCDCODE_BLINKSTART, 0, &priv->stream);
 		break;
 	case PROTO_CMD_BLINK_CURSOR_OFF:
+		dbg("TODO: blink cursor off\n");
 		//slcd_encode(SLCDCODE_BLINKOFF, 0, &priv->stream);
 		break;
 	case PROTO_CMD_CURSOR_LEFT:
