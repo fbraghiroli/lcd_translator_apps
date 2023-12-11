@@ -83,8 +83,8 @@ static int msg_fsm_run(struct mtxorb_hndl *h, uint8_t c)
 			/* convert some chars... */
 			if (c == 0xff)
 				c = '#';
-			if (c >= 0x0 && c <= 0x7) /* custom char, for now replaced */
-				c = '#';
+
+			/* custom char: 0x00 to 0x07 */
 			h->msg.data.ascii = c;
 		}
 		break;
@@ -139,8 +139,13 @@ static int msg_fsm_run(struct mtxorb_hndl *h, uint8_t c)
 		if (h->msg.cmd == PROTO_CMD_SET_CONTRAST) {
 			h->msg.data.contrast = c;
 		}
+		if (h->msg.cmd == PROTO_CMD_ADD_CUSTOM_CHAR) {
+			if (h->msg_data_left == 9)
+				h->msg.data.custom_char.idx = c;
+			else
+				h->msg.data.custom_char.bmp[8-h->msg_data_left] = c;
+		}
 		/* Ignore backlight on data (minutes) */
-		/* Ignore custom char data */
 		/* Ignore backlight lvl data */
 		h->msg_data_left--;
 		if (!h->msg_data_left)

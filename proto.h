@@ -65,12 +65,18 @@ struct proto_pos {
 	uint8_t row;
 };
 
+struct proto_custom_char {
+	uint8_t idx;
+	uint8_t bmp[8];
+};
+
 struct proto_cmd_data {
 	enum proto_cmds cmd;
 	union cmd_data {
 		struct proto_pos pos;
 		uint8_t contrast;
 		uint8_t ascii;
+		struct proto_custom_char custom_char;
 	} data;
 };
 

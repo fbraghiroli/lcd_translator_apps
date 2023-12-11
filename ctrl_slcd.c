@@ -28,6 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <nuttx/lcd/slcd_ioctl.h>
 #include <nuttx/lcd/slcd_codec.h>
+#include <nuttx/lcd/pcf8574_lcd_backpack.h>
 
 #include "utils.h"
 #include "proto.h"
@@ -211,6 +212,7 @@ int ctrl_slcd_cmd(struct ctrl_slcd *hndl, const struct proto_cmd_data *cmd)
 {
 	struct ctrl_slcd *priv = hndl;
 	struct slcd_curpos_s attr_pos;
+	struct slcd_createchar_s custom_char;
 
 	switch(cmd->cmd) {
 	case PROTO_CMD_ASCII:
@@ -282,8 +284,9 @@ int ctrl_slcd_cmd(struct ctrl_slcd *hndl, const struct proto_cmd_data *cmd)
 		slcd_encode(SLCDCODE_RIGHT, 1, &priv->stream);
 		break;
 	case PROTO_CMD_ADD_CUSTOM_CHAR:
-		dbg("TODO: add custom char\n");
-		/* TODO */
+		custom_char.idx = cmd->data.custom_char.idx;
+		memcpy(custom_char.bmp, cmd->data.custom_char.bmp, 8);
+		ioctl(hndl->fd, SLCDIOC_CREATECHAR, &custom_char);
 		break;
 	case PROTO_CMD_CLR_DISPLAY:
 		slcd_encode(SLCDCODE_CLEAR, 0, &priv->stream);
