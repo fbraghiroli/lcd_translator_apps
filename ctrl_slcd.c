@@ -157,6 +157,19 @@ static void slcd_set_curpos(struct ctrl_slcd *hndl, uint8_t r, uint8_t c)
 	slcd_encode(SLCDCODE_DOWN, r, &priv->stream);
 }
 
+#if 0
+static void slcd_dump_table(struct ctrl_slcd *hndl)
+{
+	uint16_t c;
+	for (c = 0; c < 256; c++) {
+		write(hndl->fd, &c, 1);
+		usleep(100*1000);
+		if (!(c % 10))
+			slcd_set_curpos(hndl, 0, 0);
+	}
+}
+#endif
+
 struct ctrl_slcd* ctrl_slcd_init(const char *dev)
 {
 	int ret = 0;
@@ -190,6 +203,12 @@ struct ctrl_slcd* ctrl_slcd_init(const char *dev)
 
 	slcd_encode(SLCDCODE_CLEAR, 0, &priv->stream);
 	cbk_slcd_flush(&priv->stream);
+
+#if 0
+	slcd_dump_table(priv);
+	slcd_encode(SLCDCODE_CLEAR, 0, &priv->stream);
+	cbk_slcd_flush(&priv->stream);
+#endif
 
 	return priv;
 
